@@ -15,6 +15,10 @@
 @{
 @}
 
+\defgroup graphics_func Graphics
+@{
+@}
+
 @defgroup func_categories ArrayFire Functions by Category
 @{
 
@@ -108,7 +112,7 @@
      solve, solveLU, etc.
 
      @defgroup lapack_ops_mat Matrix operations
-     inverse, etc.
+     inverse, det, rank, norm etc.
    @}
 
    @defgroup image_mat Image Processing
@@ -129,7 +133,7 @@
      erode, dilate, etc.
 
      @defgroup imageflt_mat Filters
-     bilateral, sobel, mean shift, etc.
+     bilateral, sobel, mean shift, median / min / max filters etc.
 
      @defgroup connected_comps_mat Connected Components & Labeling
      regions
@@ -193,10 +197,21 @@
    @defgroup external Interface Functions
    @{
 
-     Functions to interface with external libraries and frameworks
+     CUDA/OpenCL specific functions
 
-     @defgroup opencl_mat
-     Interface with native OpenCL calls
+     @defgroup opencl_mat OpenCL specific functions
+
+        \brief Accessing ArrayFire's context, queue, and share data with other OpenCL code.
+
+        If your software is using ArrayFire's OpenCL backend, you can also write custom
+        kernels and do custom memory operations using native OpenCL commands. The functions
+        contained in the \p afcl namespace provide methods to get the context, queue, and
+        device(s) that ArrayFire is using as well as convert `cl_mem` handles to
+        \ref af::array objects.
+
+        Please note: the \ref af::array constructors are not thread safe. You may create and
+        upload data to `cl_mem` objects from separate threads, but the thread which
+        instantiated ArrayFire must do the `cl_mem` to \ref af::array conversion.
 
    @}
 @}
@@ -222,6 +237,17 @@
 \example rbm.cpp
 \example deep_belief_net.cpp
 \example logistic_regression.cpp
+\example conway.cpp
+\example conway_pretty.cpp
+\example fractal.cpp
+\example histogram.cpp
+\example plot2d.cpp
+\example brain_segmentation.cpp
+\example image_demo.cpp
+\example morphing.cpp
+\example optical_flow.cpp
+\example pyramids.cpp
+\example edge.cpp
 */
 
 #include "af/compatible.h"
@@ -230,6 +256,7 @@
 #include "af/array.h"
 #include "af/blas.h"
 #include "af/constants.h"
+#include "af/complex.h"
 #include "af/data.h"
 #include "af/device.h"
 #include "af/exception.h"
@@ -244,4 +271,5 @@
 #include "af/statistics.h"
 #include "af/timing.h"
 #include "af/util.h"
+#include "af/version.h"
 #include "af/vision.h"

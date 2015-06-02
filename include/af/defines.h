@@ -35,7 +35,12 @@
     #define __PRETTY_FUNCTION__ __func__
     #define STATIC_ inline
     #define SIZE_T_FRMT_SPECIFIER "%zu"
+#if __GNUC__ >= 4 && __GNUC_MINOR > 4
     #define DEPRECATED(msg) __attribute__((deprecated( msg )))
+#else
+    #define DEPRECATED(msg) __attribute__((deprecated))
+#endif
+
 #endif
 
 // Known 64-bit x86 and ARM architectures use long long
@@ -49,27 +54,7 @@
     typedef long long   dim_t;
 #endif
 
-#ifdef __cplusplus
-#include <complex>
-#include <cstddef>
-
-typedef std::complex<float> af_cfloat;
-typedef std::complex<double> af_cdouble;
-
-#else
 #include <stdlib.h>
-
-typedef struct {
-    float x;
-    float y;
-} af_cfloat;
-
-typedef struct {
-    double x;
-    double y;
-} af_cdouble;
-
-#endif
 
 typedef long long intl;
 typedef unsigned long long uintl;
@@ -272,6 +257,29 @@ typedef enum {
     AF_MAT_BLOCK_DIAG = 8192  ///< Matrix is block diagonal
 } af_mat_prop;
 
+typedef enum {
+    AF_NORM_VECTOR_1,      ///< treats the input as a vector and returns the sum of absolute values
+    AF_NORM_VECTOR_INF,    ///< treats the input as a vector and returns the max of absolute values
+    AF_NORM_VECTOR_2,      ///< treats the input as a vector and returns euclidean norm
+    AF_NORM_VECTOR_P,      ///< treats the input as a vector and returns the p-norm
+    AF_NORM_MATRIX_1,      ///< return the max of column sums
+    AF_NORM_MATRIX_INF,    ///< return the max of row sums
+    AF_NORM_MATRIX_2,      ///< returns the max singular value). Currently NOT SUPPORTED
+    AF_NORM_MATRIX_L_PQ,   ///< returns Lpq-norm
+
+    AF_NORM_EUCLID = AF_NORM_VECTOR_2, ///< The default. Same as AF_NORM_VECTOR_2
+} af_norm_type;
+
+typedef enum {
+    AF_COLORMAP_DEFAULT = 0,    ///< Default grayscale map
+    AF_COLORMAP_SPECTRUM= 1,    ///< Spectrum map
+    AF_COLORMAP_COLORS  = 2,    ///< Colors
+    AF_COLORMAP_RED     = 3,    ///< Red hue map
+    AF_COLORMAP_MOOD    = 4,    ///< Mood map
+    AF_COLORMAP_HEAT    = 5,    ///< Heat map
+    AF_COLORMAP_BLUE    = 6     ///< Blue hue map
+} af_colormap;
+
 // Below enum is purely added for example purposes
 // it doesn't and shoudn't be used anywhere in the
 // code. No Guarantee's provided if it is used.
@@ -282,8 +290,6 @@ typedef enum {
 #ifdef __cplusplus
 namespace af
 {
-    typedef af_cfloat cfloat;
-    typedef af_cdouble  cdouble;
     typedef af_dtype dtype;
     typedef af_source source;
     typedef af_interp_type interpType;
@@ -296,6 +302,8 @@ namespace af
     typedef af_conv_mode convMode;
     typedef af_conv_domain convDomain;
     typedef af_mat_prop matProp;
+    typedef af_colormap ColorMap;
+    typedef af_norm_type normType;
 }
 
 #endif
