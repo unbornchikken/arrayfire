@@ -26,12 +26,6 @@ float accuracy(const array& predicted, const array& target)
     return 100 * count<float>(plabels == tlabels) / tlabels.elements();
 }
 
-// Activation function
-array sigmoid(const array &val)
-{
-    return 1 / (1 + exp(-val));
-}
-
 // Derivative of the activation function
 array deriv(const array &out)
 {
@@ -127,7 +121,7 @@ public:
             for (int j = 0; j < num_batches - 1; j++) {
 
                 int st = j * batch_size;
-                int en = std::min(num_samples - 1, st + batch_size);
+                int en = std::min(num_samples - 1, st + batch_size - 1);
                 int num = en - st + 1;
 
                 array v_pos = in(seq(st, en), span);

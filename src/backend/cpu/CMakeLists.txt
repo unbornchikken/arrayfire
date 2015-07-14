@@ -31,8 +31,6 @@ FIND_PACKAGE(FFTW REQUIRED)
 MESSAGE(STATUS "FFTW Found ? ${FFTW_FOUND}")
 MESSAGE(STATUS "FFTW Library: ${FFTW_LIBRARIES}")
 
-INCLUDE("${CMAKE_MODULE_PATH}/FindGLEWmx.cmake")
-
 IF(APPLE)
     FIND_PACKAGE(LAPACK)
 ELSE(APPLE) # Linux and Windows
@@ -42,7 +40,6 @@ ENDIF(APPLE)
 IF(NOT LAPACK_FOUND)
     MESSAGE(WARNING "LAPACK not found. Functionality will be disabled")
 ELSE(NOT LAPACK_FOUND)
-    ADD_DEFINITIONS(-DLAPACK_${BLA_VENDOR})
     ADD_DEFINITIONS(-DWITH_CPU_LINEAR_ALGEBRA)
 ENDIF()
 
@@ -105,44 +102,74 @@ ELSE(${UNIX}) #Windows
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 ENDIF()
 
-ADD_LIBRARY(afcpu SHARED
-           ${cpu_headers}
-           ${cpu_sources}
-           ${backend_headers}
-           ${backend_sources}
-           ${c_headers}
-           ${c_sources}
-           ${cpp_sources})
+
+IF(DEFINED BLAS_SYM_FILE)
+  ADD_LIBRARY(afcpu_static STATIC
+              ${cpu_headers}
+              ${cpu_sources}
+              ${backend_headers}
+              ${backend_sources})
+
+  ADD_LIBRARY(afcpu SHARED
+              ${c_headers}
+              ${c_sources}
+              ${cpp_sources})
+
+  IF(FORGE_FOUND AND NOT USE_SYSTEM_FORGE)
+    ADD_DEPENDENCIES(afcpu_static forge)
+  ENDIF()
+
+  IF(APPLE)
+    SET_TARGET_PROPERTIES(afcpu_static
+        PROPERTIES LINK_FLAGS -Wl,-exported_symbols_list,${BLAS_SYM_FILE})
+    TARGET_LINK_LIBRARIES(afcpu PUBLIC $<TARGET_FILE:afcpu_static>)
+  ELSE(APPLE)
+    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/afcpu_static.renamed
+      COMMAND objcopy --redefine-syms ${BLAS_SYM_FILE} $<TARGET_FILE:afcpu_static> ${CMAKE_BINARY_DIR}/afcpu_static.renamed
+      DEPENDS $<TARGET_FILE:afcpu_static>)
+      TARGET_LINK_LIBRARIES(afcpu PUBLIC ${CMAKE_BINARY_DIR}/afcpu_static.renamed)
+  ENDIF(APPLE)
+
+ELSE(DEFINED BLAS_SYM_FILE)
+
+  ADD_LIBRARY(afcpu SHARED
+              ${cpu_headers}
+              ${cpu_sources}
+              ${backend_headers}
+              ${backend_sources}
+              ${c_headers}
+              ${c_sources}
+              ${cpp_sources})
+
+ENDIF(DEFINED BLAS_SYM_FILE)
 
 TARGET_LINK_LIBRARIES(afcpu
-                      ${FreeImage_LIBS}
-                      ${CBLAS_LIBRARIES}
-                      ${FFTW_LIBRARIES}
-                      )
+                            PRIVATE ${FreeImage_LIBS}
+                            PRIVATE ${CBLAS_LIBRARIES}
+                            PRIVATE ${FFTW_LIBRARIES})
+
+IF(FORGE_FOUND AND NOT USE_SYSTEM_FORGE)
+  ADD_DEPENDENCIES(afcpu forge)
+ENDIF()
 
 IF(LAPACK_FOUND)
-   TARGET_LINK_LIBRARIES(afcpu
-   ${LAPACK_LIBRARIES}
-   )
+   TARGET_LINK_LIBRARIES(afcpu  PRIVATE ${LAPACK_LIBRARIES})
 ENDIF()
 
 IF(FORGE_FOUND)
-    TARGET_LINK_LIBRARIES(afcpu
-                          ${FORGE_LIBRARIES}
-                         )
+    TARGET_LINK_LIBRARIES(afcpu PRIVATE ${FORGE_LIBRARIES})
 ENDIF()
 
 SET_TARGET_PROPERTIES(afcpu PROPERTIES
                       VERSION "${AF_VERSION}"
                       SOVERSION "${AF_VERSION_MAJOR}")
 
-IF(INSTALLER_MODE)
-    SET_TARGET_PROPERTIES(afcpu PROPERTIES LINK_INTERFACE_LIBRARIES "")
-    SET_TARGET_PROPERTIES(afcpu PROPERTIES INTERFACE_LINK_LIBRARIES "")
-ENDIF()
-
 INSTALL(TARGETS afcpu EXPORT CPU DESTINATION "${AF_INSTALL_LIB_DIR}"
         COMPONENT libraries)
+
+IF(APPLE)
+    INSTALL(SCRIPT "${CMAKE_MODULE_PATH}/osx_install/InstallTool.cmake")
+ENDIF(APPLE)
 
 export(TARGETS afcpu FILE ArrayFireCPU.cmake)
 INSTALL(EXPORT CPU DESTINATION "${AF_INSTALL_CMAKE_DIR}"

@@ -29,20 +29,23 @@ static const dim4 calcPackedSize(Array<T> const& i1,
     const dim4 i1d = i1.dims();
     const dim4 i2d = i2.dims();
 
-    dim_t pd[4];
+    dim_t pd[4] = {1, 1, 1, 1};
 
     // Pack both signal and filter on same memory array, this will ensure
     // better use of batched cuFFT capabilities
-    for (dim_t k = 0; k < 4; k++) {
-        if (k == 0)
-            pd[k] = nextpow2((unsigned)(i1d[k] + i2d[k] - 1)) / 2;
-        else if (k < baseDim)
-            pd[k] = nextpow2((unsigned)(i1d[k] + i2d[k] - 1));
-        else if (k == baseDim)
-            pd[k] = i1d[k] + i2d[k];
-        else
-            pd[k] = 1;
+    pd[0] = nextpow2((unsigned)((int)ceil(i1d[0] / 2.f) + i2d[0] - 1));
+
+    for (dim_t k = 1; k < baseDim; k++) {
+        pd[k] = nextpow2((unsigned)(i1d[k] + i2d[k] - 1));
     }
+
+    dim_t i1batch = 1;
+    dim_t i2batch = 1;
+    for (int k = baseDim; k < 4; k++) {
+        i1batch *= i1d[k];
+        i2batch *= i2d[k];
+    }
+    pd[baseDim] = (i1batch + i2batch);
 
     return dim4(pd[0], pd[1], pd[2], pd[3]);
 }
@@ -56,7 +59,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter, const bool 
     dim4 oDims(1);
     if (expand) {
         for(dim_t d=0; d<4; ++d) {
-            if (kind==ONE2ONE || kind==ONE2MANY) {
+            if (kind==CONVOLVE_BATCH_NONE || kind==CONVOLVE_BATCH_KERNEL) {
                 oDims[d] = sDims[d]+fDims[d]-1;
             } else {
                 oDims[d] = (d<baseDim ? sDims[d]+fDims[d]-1 : sDims[d]);
@@ -64,7 +67,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter, const bool 
         }
     } else {
         oDims = sDims;
-        if (kind==ONE2MANY) {
+        if (kind==CONVOLVE_BATCH_KERNEL) {
             for (dim_t i=baseDim; i<4; ++i)
                 oDims[i] = fDims[i];
         }
@@ -80,7 +83,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter, const bool 
     kernel::complexMultiplyHelper<cT, T, isDouble, convT>(packed, signal, filter, baseDim, kind);
 
     // Compute inverse FFT only on complex-multiplied data
-    if (kind == ONE2MANY) {
+    if (kind == CONVOLVE_BATCH_KERNEL) {
         std::vector<af_seq> seqs;
         for (dim_t k = 0; k < 4; k++) {
             if (k < baseDim)
@@ -100,7 +103,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter, const bool 
             if (k < baseDim)
                 seqs.push_back(af_make_seq(0, pDims[k]-1, 1));
             else if (k == baseDim)
-                seqs.push_back(af_make_seq(0, sDims[k]-1, 1));
+                seqs.push_back(af_make_seq(0, pDims[k]-2, 1));
             else
                 seqs.push_back(af_make_seq(0, 0, 1));
         }

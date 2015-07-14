@@ -85,7 +85,7 @@ namespace cpu
         typedef wtype_t<BT> WT;
         typedef vtype_t<T> VT;
 
-        const WT grd_x = floor(xi),  grd_y = floor(yi);
+        const dim_t grd_x = floor(xi),  grd_y = floor(yi);
         const WT off_x = xi - grd_x, off_y = yi - grd_y;
 
         dim_t loci = grd_y * istrides[1] + grd_x;
@@ -121,4 +121,40 @@ namespace cpu
             }
         }
     }
+
+    template<typename T>
+    void transform_l(T *out, const T *in, const float *tmat, const af::dim4 &idims,
+                      const af::dim4 &ostrides, const af::dim4 &istrides,
+                      const dim_t nimages, const dim_t o_offset,
+                      const dim_t xx, const dim_t yy)
+    {
+        // Compute output index
+        const dim_t xi = floor(xx * tmat[0]
+                             + yy * tmat[1]
+                                  + tmat[2]);
+        const dim_t yi = floor(xx * tmat[3]
+                             + yy * tmat[4]
+                                  + tmat[5]);
+
+        // Compute memory location of indices
+        dim_t loci = (yi * istrides[1] + xi);
+        dim_t loco = (yy * ostrides[1] + xx);
+
+        T val = scalar<T>(0.0f);
+        // Copy to output
+        for(int batch = 0; batch < (int)idims[3]; batch++) {
+            dim_t i__ = batch * istrides[3];
+            dim_t o__ = batch * ostrides[3];
+            for(int i_idx = 0; i_idx < (int)nimages; i_idx++) {
+                dim_t i_off = i_idx * istrides[2] + i__;
+                dim_t o_off = o_offset + i_idx * ostrides[2] + o__;
+
+                if (xi < idims[0] && yi < idims[1] && xi >= 0 && yi >= 0)
+                    val = in[i_off + loci];
+
+                out[o_off + loco] = val;
+            }
+        }
+    }
+
 }

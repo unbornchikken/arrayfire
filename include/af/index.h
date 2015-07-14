@@ -104,6 +104,15 @@ class AFAPI index {
     index(const af::array& idx0);
 
     ///
+    /// \brief Copy constructor
+    ///
+    /// \param[in] idx0 is index to copy.
+    ///
+    /// \sa indexing
+    ///
+    index(const index& idx0);
+
+    ///
     /// \brief Returns true if the \ref af::index represents a af::span object
     ///
     /// \returns true if the af::index is an af::span
@@ -116,6 +125,31 @@ class AFAPI index {
     /// \returns the af_index_t represented by this object
     ///
     const af_index_t& get() const;
+
+    ///
+    /// \brief Assigns idx0 to this index
+    ///
+    /// \param[in] idx0 is the index to be assigned to the /ref af::index
+    /// \returns the reference to this
+    /// 
+    ///
+    index & operator=(const index& idx0);
+
+#if __cplusplus > 199711L
+    ///
+    /// \brief Move constructor
+    ///
+    /// \param[in] idx0 is index to copy.
+    ///
+    index(index &&idx0);
+    ///
+    /// \brief Move assignment operator
+    ///
+    /// \param[in] idx0 is the index to be assigned to the /ref af::index
+    /// \returns a reference to this
+    ///
+    index& operator=(index &&idx0);
+#endif
 };
 
 ///
@@ -130,6 +164,24 @@ class AFAPI index {
 ///
 
 AFAPI array lookup(const array &in, const array &idx, const int dim = -1);
+
+///
+/// Copy the values of an input array based on index
+///
+/// \param[out] dst The destination array
+/// \param[in] src The source array
+/// \param[in] idx0 The first index
+/// \param[in] idx1 The second index (defaults to \ref af::span)
+/// \param[in] idx2 The third index (defaults to \ref af::span)
+/// \param[in] idx3 The fourth index (defaults to \ref af::span)
+/// \ingroup index_func_index
+///
+
+AFAPI void copy(array &dst, const array &src,
+                const index &idx0,
+                const index &idx1 = span,
+                const index &idx2 = span,
+                const index &idx3 = span);
 
 }
 #endif

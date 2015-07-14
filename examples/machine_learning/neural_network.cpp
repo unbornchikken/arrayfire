@@ -26,12 +26,6 @@ float accuracy(const array& predicted, const array& target)
     return 100 * count<float>(plabels == tlabels) / tlabels.elements();
 }
 
-// Activation function
-array sigmoid(const array &val)
-{
-    return 1 / (1 + exp(-val));
-}
-
 // Derivative of the activation function
 array deriv(const array &out)
 {
@@ -158,7 +152,7 @@ double ann::train(const array &input, const array &target,
         for (int j = 0; j < num_batches - 1; j++) {
 
             int st = j * batch_size;
-            int en = st + batch_size;
+            int en = st + batch_size - 1;
 
             array x = input(seq(st, en), span);
             array y = target(seq(st, en), span);

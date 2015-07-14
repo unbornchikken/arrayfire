@@ -98,7 +98,7 @@ void complexMultiply(T* out_ptr, const af::dim4& od, const af::dim4& os,
         for (int d2 = 0; d2 < (int)od[2]; d2++) {
             for (int d1 = 0; d1 < (int)od[1]; d1++) {
                 for (int d0 = 0; d0 < (int)od[0] / 2; d0++) {
-                    if (kind == ONE2ONE || kind == MANY2MANY) {
+                    if (kind == CONVOLVE_BATCH_NONE || kind == CONVOLVE_BATCH_SAME) {
                         // Complex multiply each signal to equivalent filter
                         const int ridx = d3*os[3] + d2*os[2] + d1*os[1] + d0*2;
                         const int iidx = ridx + 1;
@@ -114,7 +114,7 @@ void complexMultiply(T* out_ptr, const af::dim4& od, const af::dim4& os,
                         out_ptr[ridx] = ac - bd;
                         out_ptr[iidx] = (a+b) * (c+d) - ac - bd;
                     }
-                    else if (kind == MANY2ONE) {
+                    else if (kind == CONVOLVE_BATCH_SIGNAL) {
                         // Complex multiply all signals to filter
                         const int ridx1 = d3*os[3] + d2*os[2] + d1*os[1] + d0*2;
                         const int iidx1 = ridx1 + 1;
@@ -132,7 +132,7 @@ void complexMultiply(T* out_ptr, const af::dim4& od, const af::dim4& os,
                         out_ptr[ridx1] = ac - bd;
                         out_ptr[iidx1] = (a+b) * (c+d) - ac - bd;
                     }
-                    else if (kind == ONE2MANY) {
+                    else if (kind == CONVOLVE_BATCH_KERNEL) {
                         // Complex multiply signal to all filters
                         const int ridx2 = d3*os[3] + d2*os[2] + d1*os[1] + d0*2;
                         const int iidx2 = ridx2 + 1;
@@ -224,26 +224,29 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter,
 
     dim_t fftScale = 1;
 
-    af::dim4 packed_dims;
+    af::dim4 packed_dims(1, 1, 1, 1);
     int fft_dims[baseDim];
     af::dim4 sig_tmp_dims, sig_tmp_strides;
     af::dim4 filter_tmp_dims, filter_tmp_strides;
 
     // Pack both signal and filter on same memory array, this will ensure
-    // better use of batched cuFFT capabilities
-    for (dim_t k = 0; k < 4; k++) {
-        if (k < baseDim)
-            packed_dims[k] = nextpow2((unsigned)(sd[k] + fd[k] - 1));
-        else if (k == baseDim)
-            packed_dims[k] = sd[k] + fd[k];
-        else
-            packed_dims[k] = 1;
+    // better use of batched FFT capabilities
+    fft_dims[baseDim - 1] = nextpow2((unsigned)((int)ceil(sd[0] / 2.f) + fd[0] - 1));
+    packed_dims[0] = 2 * fft_dims[baseDim - 1];
+    fftScale *= fft_dims[baseDim - 1];
 
-        if (k < baseDim) {
-            fft_dims[baseDim-k-1] = (k == 0) ? packed_dims[k] / 2 : packed_dims[k];
-            fftScale *= fft_dims[baseDim-k-1];
-        }
+    for (dim_t k = 1; k < baseDim; k++) {
+        packed_dims[k] = nextpow2((unsigned)(sd[k] + fd[k] - 1));
+        fft_dims[baseDim - k - 1] = packed_dims[k];
+        fftScale *= fft_dims[baseDim - k - 1];
     }
+
+    dim_t sbatch = 1, fbatch = 1;
+    for (int k = baseDim; k < 4; k++) {
+        sbatch *= sd[k];
+        fbatch *= fd[k];
+    }
+    packed_dims[baseDim] = (sbatch + fbatch);
 
     Array<convT> packed = createEmptyArray<convT>(packed_dims);
     convT *packed_ptr = packed.get();
@@ -320,7 +323,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter,
     }
 
     // Multiply filter and signal FFT arrays
-    if (kind == ONE2MANY)
+    if (kind == CONVOLVE_BATCH_KERNEL)
         complexMultiply<convT>(filter_tmp_ptr, filter_tmp_dims, filter_tmp_strides,
                                sig_tmp_ptr, sig_tmp_dims, sig_tmp_strides,
                                filter_tmp_ptr, filter_tmp_dims, filter_tmp_strides,
@@ -373,7 +376,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter,
     dim4 oDims(1);
     if (expand) {
         for(dim_t d=0; d<4; ++d) {
-            if (kind==ONE2ONE || kind==ONE2MANY) {
+            if (kind==CONVOLVE_BATCH_NONE || kind==CONVOLVE_BATCH_KERNEL) {
                 oDims[d] = sd[d]+fd[d]-1;
             } else {
                 oDims[d] = (d<baseDim ? sd[d]+fd[d]-1 : sd[d]);
@@ -381,7 +384,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter,
         }
     } else {
         oDims = sd;
-        if (kind==ONE2MANY) {
+        if (kind==CONVOLVE_BATCH_KERNEL) {
             for (dim_t i=baseDim; i<4; ++i)
                 oDims[i] = fd[i];
         }
@@ -395,7 +398,7 @@ Array<T> fftconvolve(Array<T> const& signal, Array<T> const& filter,
     const af::dim4 filter_dims = filter.dims();
 
     // Reorder the output
-    if (kind == ONE2MANY) {
+    if (kind == CONVOLVE_BATCH_KERNEL) {
         reorderOutput<T, convT, roundOut>
             (out_ptr, out_dims, out_strides,
              filter_tmp_ptr, filter_tmp_dims, filter_tmp_strides,

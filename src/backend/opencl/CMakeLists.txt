@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7)
 PROJECT(ARRAYFIRE)
 
 FIND_PACKAGE(OpenCL REQUIRED)
@@ -24,7 +24,6 @@ ENDIF(APPLE)
 IF(NOT LAPACK_FOUND)
     MESSAGE(WARNING "LAPACK not found. Functionality will be disabled")
 ELSE(NOT LAPACK_FOUND)
-    ADD_DEFINITIONS(-DLAPACK_${BLA_VENDOR})
     ADD_DEFINITIONS(-DWITH_OPENCL_LINEAR_ALGEBRA)
 ENDIF()
 
@@ -170,39 +169,81 @@ ELSE(${UNIX}) #Windows
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
 ENDIF()
 
+IF(DEFINED BLAS_SYM_FILE)
 
-ADD_LIBRARY(afopencl SHARED
-            ${opencl_headers}
-            ${opencl_sources}
-            ${jit_sources}
-            ${kernel_headers}
-            ${opencl_kernels}
-            ${kernel_sources}
-            ${conv_ker_headers}
-            ${conv_ker_sources}
-            ${backend_headers}
-            ${backend_sources}
-            ${c_sources}
-            ${c_headers}
-            ${cpp_sources}
-            ${magma_sources}
-            ${magma_headers}
-            )
+    ADD_LIBRARY(afopencl_static STATIC
+                ${opencl_headers}
+                ${opencl_sources}
+                ${jit_sources}
+                ${kernel_headers}
+                ${opencl_kernels}
+                ${kernel_sources}
+                ${conv_ker_headers}
+                ${conv_ker_sources}
+                ${backend_headers}
+                ${backend_sources}
+                ${magma_sources}
+                ${magma_headers})
+
+    ADD_LIBRARY(afopencl SHARED
+               ${c_headers}
+               ${c_sources}
+               ${cpp_sources})
+
+
+    IF(FORGE_FOUND AND NOT USE_SYSTEM_FORGE)
+        ADD_DEPENDENCIES(afopencl_static forge)
+    ENDIF()
+
+    IF(APPLE)
+    SET_TARGET_PROPERTIES(afopencl_static
+        PROPERTIES LINK_FLAGS -Wl,-exported_symbols_list,${BLAS_SYM_FILE})
+    TARGET_LINK_LIBRARIES(afopencl PUBLIC $<TARGET_FILE:afopencl_static>)
+    ELSE(APPLE)
+    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/afopencl_static.renamed
+      COMMAND objcopy --redefine-syms ${BLAS_SYM_FILE} $<TARGET_FILE:afopencl_static> ${CMAKE_BINARY_DIR}/afopencl_static.renamed
+      DEPENDS $<TARGET_FILE:afopencl_static>)
+      TARGET_LINK_LIBRARIES(afopencl PUBLIC ${CMAKE_BINARY_DIR}/afopencl_static.renamed)
+    ENDIF(APPLE)
+
+
+ELSE(DEFINED BLAS_SYM_FILE)
+
+    ADD_LIBRARY(afopencl SHARED
+                ${opencl_headers}
+                ${opencl_sources}
+                ${jit_sources}
+                ${kernel_headers}
+                ${opencl_kernels}
+                ${kernel_sources}
+                ${conv_ker_headers}
+                ${conv_ker_sources}
+                ${backend_headers}
+                ${backend_sources}
+                ${c_headers}
+                ${c_sources}
+                ${cpp_sources}
+                ${magma_sources}
+                ${magma_headers})
+
+ENDIF()
 
 ADD_DEPENDENCIES(afopencl ${cl_kernel_targets})
 
 TARGET_LINK_LIBRARIES(afopencl
-    ${OpenCL_LIBRARIES}
-    ${FreeImage_LIBS}
-    ${CLBLAS_LIBRARIES}
-    ${CLFFT_LIBRARIES}
-    ${CMAKE_DL_LIBS}
-    ${Boost_LIBRARIES})
+                                PRIVATE ${OpenCL_LIBRARIES}
+                                PRIVATE ${FreeImage_LIBS}
+                                PRIVATE ${CLBLAS_LIBRARIES}
+                                PRIVATE ${CLFFT_LIBRARIES}
+                                PRIVATE ${CMAKE_DL_LIBS}
+                                PRIVATE ${Boost_LIBRARIES})
+
+IF(FORGE_FOUND AND NOT USE_SYSTEM_FORGE)
+    ADD_DEPENDENCIES(afopencl forge)
+ENDIF()
 
 IF(LAPACK_FOUND)
-   TARGET_LINK_LIBRARIES(afopencl
-   ${LAPACK_LIBRARIES}
-   )
+   TARGET_LINK_LIBRARIES(afopencl   PRIVATE ${LAPACK_LIBRARIES})
 ENDIF()
 
 SET_TARGET_PROPERTIES(afopencl PROPERTIES
@@ -210,33 +251,15 @@ SET_TARGET_PROPERTIES(afopencl PROPERTIES
     SOVERSION "${AF_VERSION_MAJOR}")
 
 IF(FORGE_FOUND)
-    TARGET_LINK_LIBRARIES(afopencl
-                          ${FORGE_LIBRARIES}
-                         )
-ENDIF()
-
-IF(INSTALLER_MODE)
-    SET_TARGET_PROPERTIES(afopencl PROPERTIES LINK_INTERFACE_LIBRARIES "")
-    SET_TARGET_PROPERTIES(afopencl PROPERTIES INTERFACE_LINK_LIBRARIES "")
-ELSE()
-# locally built but not installed libraries (clBLAS and clFFT) must NOT appear in the
-# link interface. The best option would be to use LINK_PRIVATE, but unfortunately
-# it is not available for older cmake than 2.8.7, so they must be remove from
-# the link interface manually. Both LINK_INTERFACE_LIBRARIES and INTERFACE_LINK_LIBRARIES
-# are used to keep it working with older cmake versions that 2.8.12 and avoid
-# warnings on newer versions - see CMP0022
-    FOREACH(property LINK_INTERFACE_LIBRARIES INTERFACE_LINK_LIBRARIES)
-        GET_TARGET_PROPERTY(value afopencl ${property})
-        IF(value)
-            LIST(REMOVE_ITEM value ${CLBLAS_LIBRARIES} ${CLFFT_LIBRARIES})
-            SET_TARGET_PROPERTIES(afopencl PROPERTIES LINK_INTERFACE_LIBRARIES "${value}")
-            SET_TARGET_PROPERTIES(afopencl PROPERTIES INTERFACE_LINK_LIBRARIES "${value}")
-        ENDIF()
-    ENDFOREACH()
+    TARGET_LINK_LIBRARIES(afopencl  PRIVATE ${FORGE_LIBRARIES})
 ENDIF()
 
 INSTALL(TARGETS afopencl EXPORT OpenCL DESTINATION "${AF_INSTALL_LIB_DIR}"
         COMPONENT libraries)
+
+IF(APPLE)
+    INSTALL(SCRIPT "${CMAKE_MODULE_PATH}/osx_install/InstallTool.cmake")
+ENDIF(APPLE)
 
 export(TARGETS afopencl FILE ArrayFireOpenCL.cmake)
 INSTALL(EXPORT OpenCL DESTINATION "${AF_INSTALL_CMAKE_DIR}"

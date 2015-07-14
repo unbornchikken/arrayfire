@@ -46,11 +46,11 @@ namespace cuda
         {
             // Compute input index
             int xidi = round(xido * tmat[0]
-                             + yido * tmat[1]
-                             + tmat[2]);
+                           + yido * tmat[1]
+                                  + tmat[2]);
             int yidi = round(xido * tmat[3]
-                             + yido * tmat[4]
-                             + tmat[5]);
+                           + yido * tmat[4]
+                                  + tmat[5]);
 
             // Makes scale give same output as resize
             // But fails rotate tests
@@ -98,12 +98,12 @@ namespace cuda
             typedef typename itype_t<T>::wtype WT;
             typedef typename itype_t<T>::vtype VT;
 
-            const WT grd_x = floor(xidi),  grd_y = floor(yidi);
+            const int grd_x = floor(xidi),  grd_y = floor(yidi);
             const WT off_x = xidi - grd_x, off_y = yidi - grd_y;
 
             // Check if pVal and pVal + 1 are both valid indices
-            const bool condY = (yidi < in.dims[1] - 1);
-            const bool condX = (xidi < in.dims[0] - 1);
+            const bool condY = (yidi < (in.dims[1] - 1));
+            const bool condX = (xidi < (in.dims[0] - 1));
 
             // Compute weights used
             const WT wt00 = (1.0 - off_x) * (1.0 - off_y);
@@ -127,6 +127,40 @@ namespace cuda
                 VT vo  = v00 + v10 + v01 + v11;
 
                 optr[ooff] = (vo / wt);
+            }
+        }
+
+        template<typename T>
+        __device__
+        void transform_l(T *optr, Param<T> out, const T *iptr, CParam<T> in, const float *tmat,
+                         const int xido, const int yido, const int nimages)
+        {
+            // Compute input index
+            int xidi = floor(xido * tmat[0]
+                           + yido * tmat[1]
+                                  + tmat[2]);
+            int yidi = floor(xido * tmat[3]
+                           + yido * tmat[4]
+                                  + tmat[5]);
+
+            // Makes scale give same output as resize
+            // But fails rotate tests
+            //if (xidi >= in.dims[0]) { xidi = in.dims[0] - 1; }
+            //if (yidi >= in.dims[1]) { yidi = in.dims[1] - 1; }
+
+            const int loci = yidi * in.strides[1]  + xidi;
+            const int loco = yido * out.strides[1] + xido;
+
+            for(int i = 0; i < nimages; i++) {
+                // Compute memory location of indices
+                int ioff = loci + i * in.strides[2];
+                int ooff = loco + i * out.strides[2];
+
+                // Copy to output
+                T val = scalar<T>(0);
+                if (xidi < in.dims[0] && yidi < in.dims[1] && xidi >= 0 && yidi >= 0) val = iptr[ioff];
+
+                optr[ooff] = val;
             }
         }
     }

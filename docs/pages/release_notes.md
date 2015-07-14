@@ -1,6 +1,55 @@
 Release Notes {#releasenotes}
 ==============
 
+v3.0.2
+==============
+
+Bug Fixes
+--------------
+
+* Added missing symbols from the compatible API
+* Fixed a bug affecting corner rows and elements in \ref grad()
+* Fixed linear interpolation bugs affecting large images in the following:
+    - \ref approx1()
+    - \ref approx2()
+    - \ref resize()
+    - \ref rotate()
+    - \ref scale()
+    - \ref skew()
+    - \ref transform()
+
+Documentation
+-----------------
+
+* Added missing documentation for \ref constant()
+* Added missing documentation for `array::scalar()`
+* Added supported input types for functions in `arith.h`
+
+v3.0.1
+==============
+
+Bug Fixes
+--------------
+
+* Fixed header to work in Visual Studio 2015
+* Fixed a bug in batched mode for FFT based convolutions
+* Fixed graphics issues on OSX
+* Fixed various bugs in visualization functions
+
+Other improvements
+---------------
+
+* Improved fractal example
+* New OSX installer
+* Improved Windows installer
+  * Default install path has been changed
+* Fixed bug in machine learning examples
+
+<br>
+
+v3.0.0
+=================
+
 Major Updates
 -------------
 

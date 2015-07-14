@@ -25,15 +25,11 @@
         #define true  1
     #endif
     #define __PRETTY_FUNCTION__ __FUNCSIG__
-    #define snprintf sprintf_s
-    #define STATIC_ static
     #define SIZE_T_FRMT_SPECIFIER "%Iu"
     #define DEPRECATED(msg) __declspec(deprecated( msg ))
 #else
     #define AFAPI   __attribute__((visibility("default")))
     #include <stdbool.h>
-    #define __PRETTY_FUNCTION__ __func__
-    #define STATIC_ inline
     #define SIZE_T_FRMT_SPECIFIER "%zu"
 #if __GNUC__ >= 4 && __GNUC_MINOR > 4
     #define DEPRECATED(msg) __attribute__((deprecated( msg )))
@@ -179,7 +175,8 @@ typedef enum {
     AF_INTERP_NEAREST,  ///< Nearest Interpolation
     AF_INTERP_LINEAR,   ///< Linear Interpolation
     AF_INTERP_BILINEAR, ///< Bilinear Interpolation
-    AF_INTERP_CUBIC     ///< Cubic Interpolation
+    AF_INTERP_CUBIC,    ///< Cubic Interpolation
+    AF_INTERP_LOWER     ///< Floor Indexed
 } af_interp_type;
 
 typedef enum {
@@ -247,6 +244,7 @@ typedef enum {
     AF_MAT_NONE       = 0,    ///< Default
     AF_MAT_TRANS      = 1,    ///< Data needs to be transposed
     AF_MAT_CTRANS     = 2,    ///< Data needs to be conjugate tansposed
+    AF_MAT_CONJ       = 4,    ///< Data needs to be conjugate
     AF_MAT_UPPER      = 32,   ///< Matrix is upper triangular
     AF_MAT_LOWER      = 64,   ///< Matrix is lower triangular
     AF_MAT_DIAG_UNIT  = 128,  ///< Matrix diagonal contains unitary values

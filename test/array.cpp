@@ -1,10 +1,18 @@
+/*******************************************************
+ * Copyright (c) 2014, ArrayFire
+ * All rights reserved.
+ *
+ * This file is distributed under 3-clause BSD license.
+ * The complete license agreement can be obtained at:
+ * http://arrayfire.com/licenses/BSD-3-Clause
+ ********************************************************/
 
 #include <gtest/gtest.h>
 #include <arrayfire.h>
 #include <testHelpers.hpp>
 
 using namespace af;
-using namespace std;
+using std::vector;
 
 template<typename T>
 class Array : public ::testing::Test
