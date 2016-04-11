@@ -37,7 +37,8 @@ double error(const array &out,
              const array &pred)
 {
     array dif = (out - pred);
-    return sqrt((double)(sum<float>(dif * dif)));
+    array sq = dif * dif;
+    return sqrt((double)(sum<float>(sq))) / sq.elements();
 }
 
 class ann {
@@ -140,7 +141,6 @@ double ann::train(const array &input, const array &target,
                   double alpha, int max_epochs, int batch_size,
                   double maxerr, bool verbose)
 {
-
     const int num_samples = input.dims(0);
     const int num_batches = num_samples / batch_size;
 
@@ -148,6 +148,7 @@ double ann::train(const array &input, const array &target,
 
     // Training the entire network
     for (int i = 0; i < max_epochs; i++) {
+        timer::start();
 
         for (int j = 0; j < num_batches - 1; j++) {
 
@@ -161,7 +162,6 @@ double ann::train(const array &input, const array &target,
             vector<array> signals = forward_propagate(x);
             array out = signals[num_layers - 1];
 
-
             // Propagate the error backward
             back_propagate(signals, y, alpha);
         }
@@ -172,15 +172,9 @@ double ann::train(const array &input, const array &target,
         array out = predict(input(seq(st, en), span));
         err = error(out, target(seq(st, en), span));
 
-        // Check if convergence criteria has been met
-        if (err < maxerr) {
-            printf("Converged on Epoch: %4d\n", i + 1);
-            return err;
-        }
+        double time = timer::stop();
 
-        if (verbose) {
-            if ((i + 1) % 10 == 0) printf("Epoch: %4d, Error: %0.4f\n", i+1, err);
-        }
+        printf("Epoch: %4d, Error: %0.8f, Time: %0.8f\n", i+1, err, time);
     }
     return err;
 }
@@ -266,11 +260,11 @@ int main(int argc, char** argv)
 {
     int device   = argc > 1 ? atoi(argv[1]) : 0;
     bool console = argc > 2 ? argv[2][0] == '-' : false;
-    int perc     = argc > 3 ? atoi(argv[3]) : 60;
+    int perc	 = argc > 3 ? atoi(argv[3]) : 60;
 
     try {
-
         af::setDevice(device);
+        af::setSeed(42);
         af::info();
         return ann_demo(console, perc);
 
