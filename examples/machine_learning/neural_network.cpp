@@ -145,6 +145,7 @@ double ann::train(const array &input, const array &target,
     const int num_batches = num_samples / batch_size;
 
     double err = 0;
+    double allTime = 0;
 
     // Training the entire network
     for (int i = 0; i < max_epochs; i++) {
@@ -173,8 +174,12 @@ double ann::train(const array &input, const array &target,
         err = error(out, target(seq(st, en), span));
 
         double time = timer::stop();
+        allTime += time;
 
-        printf("Epoch: %4d, Error: %0.8f, Time: %0.8f\n", i+1, err, time);
+        if (verbose) {
+            if ((i + 1) % 10 == 0) printf("Epoch: %4d, Error: %0.8f, Time: %0.8f\n", i+1, err, allTime / 10.0);
+            allTime = 0;
+        }
     }
     return err;
 }
